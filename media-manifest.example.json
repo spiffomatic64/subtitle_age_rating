@@ -1,0 +1,24 @@
+{
+  "files": {
+    "movies/Example Film.2020.en.srt": {
+      "type": "movie",
+      "title": "Example Film",
+      "year": 2020,
+      "language": "en",
+      "summary": "An optional synopsis supplied by you."
+    },
+    "shows/Example Series/Season 1/01.srt": {
+      "type": "episode",
+      "show": "Example Series",
+      "title": "The first episode",
+      "season": 1,
+      "episode": 1,
+      "language": "en"
+    },
+    "other/interview.txt": {
+      "type": "transcript",
+      "title": "An interview",
+      "language": "auto"
+    }
+  }
+}

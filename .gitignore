@@ -1,0 +1,89 @@
+# Python caches / tooling
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+static/episode_artwork/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Local config / secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.log
+
+# Machine-specific model catalog and unrelated local launcher.
+# Publish llamacpp_models.example.ini instead of the local inventory.
+/llamacpp_models.ini
+/llama_start_sillytavern.bat
+# Historical one-off tools and launchers for a particular two-GPU workstation.
+# The generic application and its tests do not depend on these files.
+/generate_simpsons_age_table.py
+/scripts/verify_media_migration.py
+/llamacpp_start_3090.bat
+/llamacpp_start_5080.bat
+/llamacpp_start_text.bat
+*.local.ini
+*.local.bat
+*.gguf
+*.safetensors
+/tools/
+
+# Local databases, journals, backups, downloaded content, and generated exports.
+# Databases contain profiles, notes, viewing history, and absolute local paths.
+*.sqlite3
+*.sqlite3-*
+*.sqlite3.backup-*
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+/subtitle_cache/
+/subtitles/
+/videos/
+/downloads/
+/models/
+/exports/
+*.srt
+*.vtt
+*.ass
+*.ssa
+*.sub
+*.sup
+*.idx
+*.mkv
+*.mp4
+*.m4v
+*.mov
+*.avi
+*.webm
+*.m2ts
+/simpsons_episode_age_table.csv
+/simpsons_episode_age_explanations.csv
+
+# Local agent state
+/.agents/
+/.codex/
+/.local-validation/
+/media-manifest.json
+
+# OS / editor files
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/

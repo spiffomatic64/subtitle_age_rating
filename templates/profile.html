@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Preferences · Media Compass{% endblock %}
+{% block content %}
+<section class="hero"><div><p class="eyebrow">Single-child profile</p><h1>Tune comfort, not the underlying rating.</h1><p>“Avoid entirely” and “Very uncomfortable” create hard limits. Other settings contribute weighted penalties.</p></div></section>
+<form class="panel profile-form" method="post">
+  <div class="two-column"><label>Display name<input name="display_name" maxlength="80" value="{{ current.display_name }}"></label><label>Age<input name="age" type="number" min="2" max="17" value="{{ current.age }}"></label></div>
+  <h2>Core sensitivities</h2>
+  <div class="preference-list">{% for key, info in profile_groups.items() %}<label><span><strong>{{ info.label }}</strong><small>{{ sensitivity_levels[current.sensitivities[key]][2] }}</small></span><select name="sensitivity_{{ key }}">{% for value, label, description in sensitivity_levels %}<option value="{{ value }}" {% if current.sensitivities[key] == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>{% endfor %}</div>
+  <details><summary>Advanced advisory overrides</summary><p>Leave an item on “Use category setting” unless this specific content needs different treatment.</p><div class="preference-list advanced">{% for key, info in advisory_info.items() %}<label><span><strong>{{ info.label }}</strong><small>{{ category_info[info.category].label }}</small></span><select name="advanced_{{ key }}"><option value="">Use category setting</option>{% for value, label, description in sensitivity_levels %}<option value="{{ value }}" {% if current.advanced.get(key) == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>{% endfor %}</div></details>
+  <button class="button" type="submit">Save preferences</button>
+</form>
+{% endblock %}

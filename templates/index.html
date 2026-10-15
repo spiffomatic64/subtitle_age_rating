@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Library · Media Compass{% endblock %}
+{% block content %}
+<section class="hero">
+  <div>
+    <p class="eyebrow">Personalized for {{ profile.display_name }}, age {{ profile.age }}</p>
+    <h1>Find something that fits tonight.</h1>
+    <p>Search the underlying review, then see exactly which sensitivities affected the result.</p>
+  </div>
+  <a class="button secondary" href="{{ url_for('profile_settings') }}">Tune preferences</a>
+</section>
+
+<form class="filter-panel" method="get" data-auto-submit>
+  <label class="search-field"><span>Search shows, titles, reasons, or dialogue</span>
+    <input type="search" name="q" value="{{ filters.q }}" placeholder="e.g. s01e09, bullying, infidelity">
+  </label>
+  <div class="filter-grid">
+    <label>Type<select name="type"><option value="">Everything</option>{% for value, label in [('episode','TV episodes'),('movie','Movies'),('transcript','Transcripts')] %}<option value="{{ value }}" {% if filters.type == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+    <label>Show<select name="series"><option value="">All shows</option>{% for item in series_choices %}<option value="{{ item.series_key }}" {% if filters.series == item.series_key %}selected{% endif %}>{{ item.series_title or 'Unidentified series' }}</option>{% endfor %}</select></label>
+    <label>Season<select name="season"><option value="">All seasons</option>{% for value in seasons %}<option value="{{ value }}" {% if filters.season == value %}selected{% endif %}>Season {{ value }}</option>{% endfor %}</select></label>
+    <label>Maximum base age<select name="max_age"><option value="">Any</option>{% for value in range(6, 18) %}<option value="{{ value }}" {% if filters.max_age == value %}selected{% endif %}>{{ value }}+</option>{% endfor %}</select></label>
+    <label>Personalized result<select name="match"><option value="">All</option>{% for value in ['Good match','Worth it','Review first','Poor match'] %}<option {% if filters.match == value %}selected{% endif %}>{{ value }}</option>{% endfor %}</select></label>
+    <label>Sort<select name="sort"><option value="episode" {% if filters.sort == 'episode' %}selected{% endif %}>Show / episode order</option><option value="release_date" {% if filters.sort == 'release_date' %}selected{% endif %}>Release date — oldest first</option><option value="release_date_desc" {% if filters.sort == 'release_date_desc' %}selected{% endif %}>Release date — newest first</option><option value="age" {% if filters.sort == 'age' %}selected{% endif %}>Minimum base age</option><option value="suitability" {% if filters.sort == 'suitability' %}selected{% endif %}>Personalized result</option><option value="confidence" {% if filters.sort == 'confidence' %}selected{% endif %}>Highest confidence</option><option value="title" {% if filters.sort == 'title' %}selected{% endif %}>Title</option></select></label>
+    <label class="check"><input type="checkbox" name="favorite" value="1" {% if filters.favorite %}checked{% endif %}> Favorites only</label>
+    <label>Watched<select name="watched"><option value="">Either</option><option value="0" {% if filters.watched == '0' %}selected{% endif %}>Unwatched</option><option value="1" {% if filters.watched == '1' %}selected{% endif %}>Watched</option></select></label>
+  </div>
+  {% if active_filters %}<div class="active-filter-chips" aria-label="Active filters">{% for item in active_filters %}<a class="filter-chip" href="{{ item.url }}">{{ item.label }} <span aria-hidden="true">×</span><span class="sr-only">Remove filter</span></a>{% endfor %}</div>{% endif %}
+  <div class="actions"><button class="button" type="submit">Apply filters</button><span class="auto-filter-note" aria-live="polite">Selections apply automatically</span><a class="text-link" href="{{ url_for('index') }}">Clear</a></div>
+</form>
+
+<div class="result-heading"><h2>{{ total }} title{% if total != 1 %}s{% endif %}</h2><p id="result-progress">Showing {{ episodes|length }} of {{ total }}</p></div>
+<section class="episode-grid" id="episode-results" data-loaded="{{ episodes|length }}" data-total="{{ total }}">
+{% include "_episode_cards.html" %}
+{% if not episodes %}
+  <div class="empty-state"><h2>No matches</h2><p>Try relaxing a filter or searching a broader phrase. To add titles, analyze subtitle files with the command-line importer.</p></div>
+{% endif %}
+</section>
+
+{% if episodes %}<nav class="pagination" id="infinite-scroll" aria-label="Load more results" {% if next_fragment_url %}data-next-fragment-url="{{ next_fragment_url }}"{% endif %}>
+  {% if page > 1 %}<a href="{{ url_for('index', **previous_args) }}">← Previous</a>{% endif %}
+  {% if next_url %}<a class="button secondary" id="load-more" href="{{ next_url }}">Load more</a>{% endif %}
+  <span id="infinite-scroll-status" aria-live="polite">{% if not next_url %}End of results.{% endif %}</span>
+</nav>{% endif %}
+{% endblock %}

@@ -1,0 +1,15 @@
+{% for episode in episodes %}
+  <article class="episode-card" data-episode-code="{{ episode.episode_code }}">
+    <a class="artwork-link" href="{{ url_for('episode_detail', episode_code=episode.episode_code) }}"><img loading="lazy" src="{{ url_for('artwork', episode_code=episode.episode_code) }}" alt=""></a>
+    <div class="card-body">
+      <div class="card-meta"><span>{{ episode.media_label }}</span><span>{{ episode.airdate or episode.release_year or 'Unknown release date' }}</span></div>
+      <h3><a href="{{ url_for('episode_detail', episode_code=episode.episode_code) }}">{{ episode.title or episode.episode_code }}</a></h3>
+      <div class="rating-row"><span class="match-badge {{ episode.match.label|lower|replace(' ','-') }}">{{ episode.match.label }}</span><strong>{{ episode.recommended_age }}+</strong><span>{{ '%.0f'|format(episode.confidence * 100) }}% confidence</span></div>
+      <p>{{ episode.summary }}</p>
+      {% if episode.match.hard_violations %}<p class="warning"><strong>Hard limit:</strong> {{ episode.match.hard_violations|join(', ') }}</p>{% endif %}
+      {% if episode.fuzzy_json_repaired %}<p class="warning"><strong>Review provenance:</strong> the model response required fuzzy JSON repair.</p>{% endif %}
+      {% if episode.subtitle_quality_status == 'corrupt' %}<p class="quality-badge">Corrupt subtitle — recommendation excluded</p>{% endif %}
+      <div class="card-actions"><a href="{{ url_for('episode_detail', episode_code=episode.episode_code) }}">Why this result</a>{% if episode.favorite %}<span title="Favorite">★</span>{% endif %}{% if episode.watched %}<span>Watched</span>{% endif %}</div>
+    </div>
+  </article>
+{% endfor %}

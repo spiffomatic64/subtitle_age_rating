@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}{{ episode.title }} · Media Compass{% endblock %}
+{% block content %}
+<a class="back-link" href="{{ url_for('index') }}">← Back to library</a>
+<section class="detail-hero">
+  <img src="{{ url_for('artwork', episode_code=episode.episode_code) }}" alt="">
+  <div>
+    <p class="eyebrow">{{ episode.media_label }} · {{ episode.airdate or episode.release_year or 'Unknown release date' }}</p>
+    <h1>{{ episode.title }}</h1>
+    <div class="rating-row large"><span class="match-badge {{ episode.match.label|lower|replace(' ','-') }}">{{ episode.match.label }}</span><strong>Base recommendation {{ episode.recommended_age }}+</strong><span>{{ '%.0f'|format(episode.confidence * 100) }}% confidence</span></div>
+    <p class="lede">{{ episode.summary }}</p>
+    <p><strong>Parent guidance:</strong> {{ episode.parent_guidance }}</p>
+    {% if episode.tvmaze_url %}<a class="text-link" target="_blank" rel="noreferrer" href="{{ episode.tvmaze_url }}">Title information ↗</a>{% endif %}
+  </div>
+</section>
+
+{% if episode.subtitle_quality_status and episode.subtitle_quality_status != 'good' %}<section class="alert-panel"><h2>Subtitle quality: {{ episode.subtitle_quality_status }}</h2>{% for issue in episode.quality_issues %}<p>{{ issue }}</p>{% endfor %}</section>{% endif %}
+{% if episode.fuzzy_json_repaired %}<section class="alert-panel"><h2>Fuzzy JSON repair used</h2><p>The model response was not strict valid JSON and was recovered using: {{ episode.json_parse_method }}.</p><p>Run <code>python subtitle_age_rating.py --reanalyze-fuzzy</code> to replace all currently flagged analyses.</p></section>{% endif %}
+
+<section class="panel">
+  <h2>Why it is a {{ episode.match.label|lower }}</h2>
+  {% if episode.match.hard_violations %}<p class="warning"><strong>Hard sensitivity limit:</strong> {{ episode.match.hard_violations|join(', ') }}</p>{% endif %}
+  <div class="reason-grid">
+  {% for reason in episode.match.reasons %}<article><h3>{{ reason.label }}</h3><div class="meter"><span style="width:{{ reason.severity * 20 }}%"></span></div><p>Content severity {{ reason.severity }}/5 · comfort setting {{ reason.comfort }}/4</p>{% for advisory in reason.advisories %}<p><strong>{{ advisory.label }}:</strong> {{ advisory.explanation }}</p>{% endfor %}</article>{% else %}<p>No configured sensitivity exceeds the current profile's comfort level.</p>{% endfor %}
+  </div>
+</section>
+
+{% if age_bands %}<section class="panel"><h2>Guidance by developmental stage</h2><div class="band-grid">{% for band in age_bands %}<article class="band {{ band.suitability }}"><h3>{{ band.label }}</h3><strong>{{ band.suitability|title }}</strong><p>{{ band.explanation }}</p></article>{% endfor %}</div></section>{% endif %}
+
+<section class="panel"><h2>Content categories</h2><div class="category-list">
+{% for key, category in episode.categories.items() %}<article><div class="category-heading"><h3>{{ category.label }}</h3><strong>{{ category.score }}/5</strong></div><div class="meter {{ category.polarity }}"><span style="width:{{ category.score * 20 }}%"></span></div><p>{{ category.explanation }}</p>{% for item in evidence.get(key, []) %}<blockquote>{{ item.excerpt }}{% if not item.transcript_verified %}<small>Not exactly verified against transcript</small>{% endif %}</blockquote>{% endfor %}</article>{% endfor %}
+</div></section>
+
+{% if episode.advisories %}<section class="panel"><h2>Detailed advisories</h2><div class="advisory-grid">{% for advisory in episode.advisories %}<article><div class="category-heading"><h3>{{ advisory.label }}</h3><strong>{{ advisory.severity }}/5</strong></div><p class="tag-row"><span>{{ advisory.frequency }}</span><span>{{ advisory.context }}</span></p><p>{{ advisory.explanation }}</p>{% for item in advisory_evidence.get(advisory.advisory_id, []) %}<blockquote>{{ item.excerpt }}</blockquote>{% endfor %}</article>{% endfor %}</div></section>{% endif %}
+
+{% if sources %}<section class="panel"><h2>Sources</h2>{% for source in sources %}<article class="source"><h3>{{ source.source_name|title }} · {{ source.status }}</h3>{% if source.source_url %}<a target="_blank" rel="noreferrer" href="{{ source.source_url }}">{{ source.page_title }} ↗</a>{% endif %}{% if source.summary %}<p>{{ source.summary }}</p>{% elif source.error %}<p>{{ source.error }}</p>{% endif %}</article>{% endfor %}</section>{% endif %}
+
+{% if episode.limitations %}<section class="panel"><h2>Analysis limitations</h2><ul>{% for limitation in episode.limitations %}<li>{{ limitation }}</li>{% endfor %}</ul></section>{% endif %}
+
+{% if tracks|length > 1 %}<section class="panel"><h2>Subtitle track</h2><p>Ratings and evidence come from the selected track. Other analyses remain in the library.</p><form method="post" action="{{ url_for('select_subtitle', episode_code=episode.episode_code) }}"><label>Track<select name="subtitle_id">{% for track in tracks %}<option value="{{ track.id }}" {% if track.id == episode.subtitle_file_id %}selected{% endif %} {% if not track.analysis_id %}disabled{% endif %}>{{ track.name }} · {{ track.language }}{% if not track.analysis_id %} · not analyzed{% endif %}</option>{% endfor %}</select></label><div class="actions"><button class="button" type="submit">Use track</button></div></form></section>{% endif %}
+
+<section class="panel"><h2>Your notes</h2><form method="post" action="{{ url_for('update_episode_state', episode_code=episode.episode_code) }}"><input type="hidden" name="next" value="{{ request.path }}"><div class="inline-checks"><label><input type="checkbox" name="favorite" value="1" {% if episode.favorite %}checked{% endif %}> Favorite</label><label><input type="checkbox" name="watched" value="1" {% if episode.watched %}checked{% endif %}> Watched</label></div><label>Notes<textarea name="notes" rows="5">{{ episode.notes }}</textarea></label><button class="button" type="submit">Save</button></form></section>
+{% endblock %}
