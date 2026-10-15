@@ -6,7 +6,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (search) {
       search.addEventListener("input", () => {
         window.clearTimeout(searchTimer);
-        searchTimer = window.setTimeout(() => form.requestSubmit(), 450);
+        searchTimer = window.setTimeout(() => form.requestSubmit(), 200);
       });
     }
     form.addEventListener("submit", () => window.clearTimeout(searchTimer));

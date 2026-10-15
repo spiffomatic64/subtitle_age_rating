@@ -2,9 +2,14 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import sqlite3
+
+import pytest
 
 import subtitle_age_rating as analyzer
 from subtitle_age_rating_web import create_app, default_sensitivities, score_episode
+import subtitle_age_rating_web as web
+from test_subtitle_age_rating_core import valid_result
 
 
 def seed_database(path: Path) -> None:
@@ -133,6 +138,84 @@ def test_main_routes_and_search(tmp_path: Path) -> None:
     assert client.get("/episode/s01e01").status_code == 200
     assert b"Visual-only content" in client.get("/episode/s01e01").data
     assert client.get("/episode/s99e99").status_code == 404
+
+
+@pytest.mark.parametrize("query", ["s06e02", "S6E2", "6x02", " s006e002 "])
+def test_episode_code_search_finds_each_series_and_respects_filters(tmp_path: Path, query: str) -> None:
+    client, database = make_client(tmp_path)
+    with analyzer.connect_database(database) as connection:
+        for code, series in (("s06e02", "The Simpsons"), ("other-show-s06e02", "Other Show")):
+            document = analyzer.SubtitleDocument(
+                path=tmp_path / f"{code}.srt", relative_path=f"{code}.srt", episode_code=code,
+                season=6, episode=2, sha256=code, byte_size=10, modified_ns=1,
+                encoding="utf-8", transcript="Exact dialogue.", cue_count=1,
+            )
+            subtitle_id = analyzer.upsert_subtitle(connection, document)
+            connection.execute("UPDATE episodes SET series_key=?, series_title=?, title=? WHERE episode_code=?",
+                               (series, series, f"{series} episode", code))
+            analysis_id = analyzer.begin_analysis(connection, 1, subtitle_id, document, "test-model")
+            analyzer.save_success(connection, analysis_id, valid_result(), "{}", document.transcript, 1)
+    result = client.get("/", query_string={"q": query})
+    assert result.status_code == 200
+    assert result.data.count(b'class="episode-card"') == 2
+    assert b"Simpsons Roasting" not in result.data
+    filtered = client.get("/", query_string={"q": query, "series": "Other Show"})
+    assert filtered.data.count(b'class="episode-card"') == 1
+    assert b"Other Show episode" in filtered.data
+    for filters in ({"season": 5}, {"type": "movie"}):
+        assert b'class="episode-card"' not in client.get("/", query_string={"q": query, **filters}).data
+
+
+def test_search_preserves_categories_advisories_and_verified_dialogue(tmp_path: Path) -> None:
+    client, database = make_client(tmp_path)
+    with analyzer.connect_database(database) as connection:
+        connection.execute("UPDATE category_ratings SET explanation='categoryneedle' WHERE category='language'")
+        connection.execute("UPDATE content_advisories SET explanation='advisoryneedle'")
+        connection.execute("UPDATE evidence SET excerpt='dialogueneedle', transcript_verified=1")
+        connection.commit()
+    for query in ("categoryneedle", "advisoryneedle", "dialogueneedle", "Insults and name-calling"):
+        response = client.get("/", query_string={"q": query})
+        assert response.status_code == 200
+        assert response.data.count(b'class="episode-card"') == 1
+    with analyzer.connect_database(database) as connection:
+        connection.execute("UPDATE evidence SET transcript_verified=0")
+        connection.commit()
+    assert b'class="episode-card"' not in client.get("/?q=dialogueneedle").data
+
+
+def test_search_uses_current_selected_analysis_not_history_or_other_tracks(tmp_path: Path) -> None:
+    client, database = make_client(tmp_path)
+    with analyzer.connect_database(database) as connection:
+        for path, needle in (("s01e01.srt", "currenttrackneedle"), ("alternate.srt", "alternatetrackneedle")):
+            document = analyzer.SubtitleDocument(
+                tmp_path / path, path, "s01e01", 1, 1, "abc", 10, 1, "utf-8", needle, 1)
+            subtitle_id = analyzer.upsert_subtitle(connection, document)
+            analysis_id = analyzer.begin_analysis(connection, 1, subtitle_id, document, "test-model")
+            result = valid_result()
+            result["categories"]["language"]["explanation"] = needle
+            analyzer.save_success(connection, analysis_id, result, "{}", document.transcript, 1)
+    assert b'class="episode-card"' not in client.get("/?q=monster").data
+    assert b'class="episode-card"' not in client.get("/?q=currenttrackneedle").data
+    assert client.get("/?q=alternatetrackneedle").data.count(b'class="episode-card"') == 1
+    assert client.post("/media/s01e01/subtitle", data={"subtitle_id": 1}).status_code == 302
+    assert client.get("/?q=currenttrackneedle").data.count(b'class="episode-card"') == 1
+    assert b'class="episode-card"' not in client.get("/?q=alternatetrackneedle").data
+    assert b'class="episode-card"' not in client.get("/?q=monster").data
+
+
+def test_episode_code_search_does_not_read_dialogue_table(tmp_path: Path, monkeypatch) -> None:
+    client, _database = make_client(tmp_path)
+    original = web._connect
+    def connect(path):
+        connection = original(path)
+        def authorize(action, table, _column, _database, _source):
+            return sqlite3.SQLITE_DENY if action == sqlite3.SQLITE_READ and table == "evidence" else sqlite3.SQLITE_OK
+        connection.set_authorizer(authorize)
+        return connection
+    monkeypatch.setattr(web, "_connect", connect)
+    response = client.get("/?q=s01e01")
+    assert response.status_code == 200
+    assert response.data.count(b'class="episode-card"') == 1
 
 
 def test_profile_and_episode_state_persist(tmp_path: Path) -> None:

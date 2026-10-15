@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import secrets
 import sqlite3
 from datetime import datetime, timezone
@@ -403,22 +404,28 @@ def create_app(
         if watched in {"0", "1"}:
             clauses.append("COALESCE(eus.watched, 0) = ?")
             parameters.append(int(watched))
-        if query:
+        episode_query = re.fullmatch(r"(?i)(?:s(\d{1,3})e(\d{1,3})|(\d{1,3})x(\d{1,3}))", query)
+        if episode_query:
+            # An episode number identifies the item directly, across series.
+            # Do not scan every category and evidence excerpt for an identifier.
+            search_season = int(episode_query.group(1) or episode_query.group(3))
+            search_episode = int(episode_query.group(2) or episode_query.group(4))
+            clauses.append("ler.media_type = 'episode' AND ler.season = ? AND ler.episode = ?")
+            parameters.extend((search_season, search_episode))
+        elif query:
             like = f"%{query}%"
             clauses.append(
                 """(
                     ler.episode_code LIKE ? OR ler.title LIKE ? OR ler.summary LIKE ? OR
-                    ler.parent_guidance LIKE ? OR ler.series_title LIKE ? OR EXISTS (
-                        SELECT 1 FROM latest_category_ratings lcr
-                        WHERE lcr.episode_code = ler.episode_code
-                          AND (lcr.explanation LIKE ? OR lcr.label LIKE ?)
-                    ) OR EXISTS (
-                        SELECT 1 FROM latest_verified_evidence lve
-                        WHERE lve.episode_code = ler.episode_code AND lve.excerpt LIKE ?
-                    ) OR EXISTS (
-                        SELECT 1 FROM latest_content_advisories lca
-                        WHERE lca.episode_code = ler.episode_code
-                          AND (lca.label LIKE ? OR lca.explanation LIKE ?)
+                    ler.parent_guidance LIKE ? OR ler.series_title LIKE ? OR ler.analysis_id IN (
+                        SELECT analysis_id FROM category_ratings
+                        WHERE explanation LIKE ? OR label LIKE ?
+                        UNION
+                        SELECT analysis_id FROM evidence
+                        WHERE transcript_verified = 1 AND excerpt LIKE ?
+                        UNION
+                        SELECT analysis_id FROM content_advisories
+                        WHERE label LIKE ? OR explanation LIKE ?
                     )
                 )"""
             )
